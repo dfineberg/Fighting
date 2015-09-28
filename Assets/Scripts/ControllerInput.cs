@@ -119,6 +119,7 @@ public class ControllerInput : MonoBehaviour, IGetInput {
     bool rightStickPressed = false;
     bool rightStickPressedCache = false;
     bool rightStickDown = false;
+    bool jumpSwitch = false;
 
     CharacterController character;
 
@@ -135,7 +136,7 @@ public class ControllerInput : MonoBehaviour, IGetInput {
 
 
 
-    public void GetInput(ref CharacterInput input)
+    public void GetInput(ref CharacterInstructions instructions)
     {
         float L_X = Input.GetAxis("L_XAxis_" + character.playerNo);
         float L_Y = Input.GetAxis("L_YAxis_" + character.playerNo);
@@ -145,22 +146,17 @@ public class ControllerInput : MonoBehaviour, IGetInput {
         float R_Y = Input.GetAxis("R_YAxis_" + character.playerNo);
         rightStickInput = new Vector2(R_X, R_Y);
 
-        input.leftStickInput = leftStickInput;
-        input.rightStickInput = rightStickInput;
-
         //If left stick is pressed this frame
         if (leftStickInput.sqrMagnitude >= stickInputThreshold * stickInputThreshold)
         {
             leftStickPressed = true;
             leftStickDown = false;
             leftStickDirection = DirectionUtility.GetDirection(leftStickInput);
-            input.leftStick = leftStickDirection;
 
             //If left stick down this frame
             if (!leftStickPressedCache)
             {
                 leftStickDown = true;
-                input.leftStickDown = leftStickDirection;
             }
         }
         else
@@ -180,13 +176,11 @@ public class ControllerInput : MonoBehaviour, IGetInput {
             rightStickPressed = true;
             rightStickDown = false;
             rightStickDirection = DirectionUtility.GetDirection(rightStickInput);
-            input.rightStick = rightStickDirection;
 
             //If right stick down this frame
             if (!rightStickPressedCache)
             {
                 rightStickDown = true;
-                input.rightStickDown = rightStickDirection;
             }
         }
         else
@@ -202,5 +196,70 @@ public class ControllerInput : MonoBehaviour, IGetInput {
 
         leftStickPressedCache = leftStickPressed;
         rightStickPressedCache = rightStickPressed;
+
+        //if the right stick is down this frame, set this frame's action instructions to attacking
+        if(rightStickDown)
+        {
+            instructions.actionInstructions = CharacterInstructions.ActionInstructions.attack;
+            instructions.attackDirection = rightStickDirection;
+        }
+
+        bool tryToJump = false;
+
+        switch (leftStickDirection)
+        {
+            case Direction.Neutral:
+                instructions.moveInstructions = CharacterInstructions.MoveInstructions.neutral;
+                break;
+
+            case Direction.Up:
+                tryToJump = true;
+                instructions.moveInstructions = CharacterInstructions.MoveInstructions.neutral;
+                break;
+
+            case Direction.RightUp:
+                tryToJump = true;
+                instructions.moveInstructions = CharacterInstructions.MoveInstructions.right;
+                break;
+
+            case Direction.Right:
+                instructions.moveInstructions = CharacterInstructions.MoveInstructions.right;
+                break;
+
+            case Direction.RightDown:
+                instructions.moveInstructions = CharacterInstructions.MoveInstructions.right;
+                break;
+
+            case Direction.Down:
+                instructions.moveInstructions = CharacterInstructions.MoveInstructions.neutral;
+                break;
+
+            case Direction.LeftDown:
+                instructions.moveInstructions = CharacterInstructions.MoveInstructions.left;
+                break;
+
+            case Direction.Left:
+                instructions.moveInstructions = CharacterInstructions.MoveInstructions.left;
+                break;
+
+            case Direction.LeftUp:
+                tryToJump = true;
+                instructions.moveInstructions = CharacterInstructions.MoveInstructions.left;
+                break;
+        }
+
+        //if the left stick is down this frame and the direction is up and the action this frame is not attacking
+        if (tryToJump)
+        {
+            if (!jumpSwitch && instructions.actionInstructions == CharacterInstructions.ActionInstructions.none)
+            {
+                jumpSwitch = true;
+                instructions.actionInstructions = CharacterInstructions.ActionInstructions.jump;
+            }
+        }
+        else
+        {
+            jumpSwitch = false;
+        }
     }
 }

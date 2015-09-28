@@ -18,11 +18,12 @@ public class CharacterController : MonoBehaviour {
 
     ICharacterState currentState;
     IGetInput inputComponent;
-    CharacterInput input;
+    CharacterInstructions instructions;
+    LinkedList<CharacterInstructions> instructionsBuffer;
 
     public int playerNo;
+    public int inputBufferLength;
     public float accelleration;
-    public float airAccelleration;
     public float runSpeed;
     public float walkSpeed;
     public float gravityScale;
@@ -30,8 +31,6 @@ public class CharacterController : MonoBehaviour {
     public float jumpWindow;
     [Range(0, 1)]
     public float sideJumpDirection;
-    public float airMoveSpeed;
-    public float maxAirSpeed;
     
     public Attack upAttack;
     public Attack sideUpAttack;
@@ -52,11 +51,10 @@ public class CharacterController : MonoBehaviour {
     public bool canMove = true;
     public Vector2 leftStickInput { get; private set; }
     public Vector2 rightStickInput { get; private set; }
-
-    bool facingRight;
+    [HideInInspector]
+    public bool facingRight;
     float startXScale;
 
-    bool jumpHeld;
     new Rigidbody2D rigidbody;
     Animator animator;
     public int upAttackTrigger { get; private set; }
@@ -103,7 +101,13 @@ public class CharacterController : MonoBehaviour {
         currentState = new Idle();
         currentState.OnEnter(this);
         inputComponent = GetComponent(typeof(IGetInput)) as IGetInput;
-        input = new CharacterInput();
+        instructions = new CharacterInstructions();
+        instructionsBuffer = new LinkedList<CharacterInstructions>();
+
+        for(int i = 0; i < inputBufferLength; i++)
+        {
+            instructionsBuffer.AddFirst(new CharacterInstructions());
+        }
 
         grounded = false;
         stunned = false;
@@ -116,17 +120,53 @@ public class CharacterController : MonoBehaviour {
     {
         //flip the character's x-scale to face left or right
         transform.localScale = new Vector3(facingRight ? startXScale : -startXScale, transform.localScale.y, transform.localScale.z);
-        
+
         //fetch this frame's input from the input component
-        if (inputComponent != null)
+        //instructions.Clear();
+        //inputComponent.GetInput(ref instructions);
+
+        CharacterInstructions thisFrameInstructions = instructionsBuffer.Last.Value;
+        instructionsBuffer.RemoveLast();
+        thisFrameInstructions.Clear();
+        inputComponent.GetInput(ref thisFrameInstructions);
+        instructionsBuffer.AddFirst(thisFrameInstructions);
+        bool actionFound = false;
+
+        foreach(CharacterInstructions i in instructionsBuffer)
         {
-            input.Clear();
-            inputComponent.GetInput(ref input);
+            if (i.actedOn)
+            {
+                break;
+            }
+            else
+            {
+                if (i.actionInstructions != CharacterInstructions.ActionInstructions.none)
+                {
+                    instructions = i;
+                    actionFound = true;
+                    break;
+                }
+            }
+        }
+
+        if (!actionFound)
+        {
+            instructions = instructionsBuffer.First.Value;
+        }
+        else
+        {
+            Debug.Log("action found");
+        }
+
+        if (instructions.actedOn)
+        {
+            Debug.Log("acted on");
         }
 
         //send this frame's input to the current state object
         //if this frame's input doesn't cause the character to change state, HandleInput returns null
-        ICharacterState nextState = currentState.HandleInput(input);
+        ICharacterState nextState = currentState.HandleInput(instructions);
+
 
         //if nextState is not null, we are switching states this frame. Call OnExit on the old state and OnEnter on the new state
         if (nextState != null)
@@ -155,12 +195,14 @@ public class CharacterController : MonoBehaviour {
     {
         if (canMove)
         {
-            if (Mathf.Abs(input.leftStickInput.x) > ControllerThresholds.WalkThreshold)
+            Vector2 runForce = Vector2.zero;
+
+            if (instructions.moveInstructions != CharacterInstructions.MoveInstructions.neutral)
             {
-                Vector2 runForce = Vector2.right * (grounded ? accelleration : airAccelleration) * (input.leftStickInput.x > 0 ? 1 : -1);
-                rigidbody.AddForce(runForce);
+                runForce = Vector2.right * accelleration * (instructions.moveInstructions == CharacterInstructions.MoveInstructions.right ? 1 : -1);
             }
 
+            rigidbody.AddForce(runForce);
             rigidbody.velocity = new Vector2(Mathf.Clamp(rigidbody.velocity.x, -runSpeed, runSpeed), rigidbody.velocity.y);
         }
     }

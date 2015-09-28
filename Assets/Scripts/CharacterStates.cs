@@ -1,24 +1,29 @@
 ﻿using UnityEngine;
 using System.Collections;
 
-public class CharacterInput
+public class CharacterInstructions
 {
-    public Vector2 leftStickInput = Vector2.zero;
-    public Vector2 rightStickInput = Vector2.zero;
-    public Direction leftStickDown = Direction.Neutral;
-    public Direction rightStickDown = Direction.Neutral;
-    public Direction leftStick = Direction.Neutral;
-    public Direction rightStick = Direction.Neutral;
+    public enum MoveInstructions
+    {
+        left, neutral, right
+    }
 
+    public enum ActionInstructions
+    {
+        none, attack, jump
+    }
+
+    public MoveInstructions moveInstructions = MoveInstructions.neutral;
+    public ActionInstructions actionInstructions = ActionInstructions.none;
+    public Direction attackDirection = Direction.Neutral;
+    public bool actedOn = false;
 
     public void Clear()
     {
-        leftStickInput = Vector2.zero;
-        rightStickInput = Vector2.zero;
-        leftStick = Direction.Neutral;
-        leftStickDown = Direction.Neutral;
-        rightStick = Direction.Neutral;
-        rightStickDown = Direction.Neutral;
+        moveInstructions = MoveInstructions.neutral;
+        actionInstructions = ActionInstructions.none;
+        attackDirection = Direction.Neutral;
+        actedOn = false;
     }
 }
 
@@ -26,7 +31,7 @@ public class CharacterInput
 
 public interface IGetInput
 {
-    void GetInput(ref CharacterInput input);
+    void GetInput(ref CharacterInstructions instructions);
 }
 
 
@@ -35,7 +40,7 @@ public interface ICharacterState
 {
     void OnEnter(CharacterController character);
 
-    ICharacterState HandleInput(CharacterInput input);
+    ICharacterState HandleInput(CharacterInstructions instructions);
 
     void Update();
 
@@ -46,16 +51,12 @@ public interface ICharacterState
 
 public class Idle : ICharacterState
 {
-    enum GroundedWalking { standing, walking, running }
-
     CharacterController character;
     Animator animator;
     Rigidbody2D rigidbody;
     bool canJump = false;
+    bool jumpThisFrame = false;
     public static float jumpTimer = 0f;
-
-    GroundedWalking currentWalking;
-
 
     public void OnEnter(CharacterController character)
     {
@@ -66,94 +67,35 @@ public class Idle : ICharacterState
 
 
 
-    public ICharacterState HandleInput(CharacterInput input)
+    public ICharacterState HandleInput(CharacterInstructions instructions)
     {
-        bool walking = false;
-
-        //If the character is stunned, switch to stunned state.
         if (character.stunned)
         {
             return new Stunned();
         }
 
-        //If the right stick is down this frame, switch to attacking state.
-        if (input.rightStickDown != Direction.Neutral)
+        if(instructions.actionInstructions == CharacterInstructions.ActionInstructions.attack)
         {
-            return new Attacking(input.rightStickDown);
+            instructions.actedOn = true;
+            return new Attacking(instructions.attackDirection);
         }
-
-        //If the left stick is pushed up and the character can jump, switch to Jumping state.
-        if (input.leftStickInput.y > ControllerThresholds.JumpThreshold && canJump)
+        else if(instructions.actionInstructions == CharacterInstructions.ActionInstructions.jump)
         {
-            //Trigger air jump animation if character is airborne
-            if (!character.grounded)
-            {
-                animator.SetTrigger(character.airJumpTrigger);
-            }
-
-            //Set the jump direction according to the tilt of the left stick in the x axis
-            if (input.leftStickInput.x <= -ControllerThresholds.SideJumpThreshold)
-            {
-                return new Jumping(JumpDirection.leftUp);
-            }
-            else if (input.leftStickInput.x > -ControllerThresholds.SideJumpThreshold && input.leftStickInput.x < ControllerThresholds.SideJumpThreshold)
-            {
-                return new Jumping(JumpDirection.up);
-            }
-            else if (input.leftStickInput.x >= ControllerThresholds.SideJumpThreshold)
-            {
-                return new Jumping(JumpDirection.rightUp);
-            }
+            instructions.actedOn = true;
+            jumpThisFrame = true;
         }
-        
-        //this check prevents jumping infinitely without letting go of the left stick
-        if ((input.leftStick == Direction.Neutral && input.leftStickInput.y < ControllerThresholds.JumpThreshold) || (character.grounded && input.leftStickInput.y < ControllerThresholds.JumpThreshold))
-        {
-            canJump = true;
-        }
-
-        /*
-        //If the character is on the ground, walk/run/stand depending on the magnitude of leftStick.x
-        if (character.grounded)
-        {
-            
-            if (Mathf.Abs(input.leftStickInput.x) > ControllerThresholds.WalkThreshold)
-            {
-                walking = true;
-
-                if (Mathf.Abs(input.leftStickInput.x) > ControllerThresholds.RunThreshold)
-                {
-                    rigidbody.velocity = new Vector2(character.runSpeed * (input.leftStickInput.x > 0 ? 1 : -1), 0f);
-                }
-                else
-                {
-                    rigidbody.velocity = new Vector2(character.walkSpeed * (input.leftStickInput.x > 0 ? 1 : -1), 0f);
-                }
-            }
-            else
-            {
-                walking = false;
-                rigidbody.velocity = Vector2.zero;
-            }
-        }
-        //If the character is in the air, AddForce to the rigidbody proportional to the magnitude of leftStick.x
         else
         {
-            float leftStickXProp = (input.leftStickInput.x + 1) / 2;
-            rigidbody.AddForce(new Vector2(Mathf.Lerp(-character.airMoveSpeed, character.airMoveSpeed, leftStickXProp), 0f));
+            jumpThisFrame = false;
         }
-        
-        
-        animator.SetBool(character.walkingHash, walking);
-        */
 
-        if (input.leftStickInput.x > 0)
+        if (instructions.moveInstructions == CharacterInstructions.MoveInstructions.right)
         {
-            character.SetFacingRight(true);
+            character.facingRight = true;
         }
-        else if (input.leftStickInput.x < 0)
+        else if (instructions.moveInstructions == CharacterInstructions.MoveInstructions.left)
         {
-            character.SetFacingRight(false);
+            character.facingRight = false;
         }
 
         return null;
@@ -163,7 +105,10 @@ public class Idle : ICharacterState
 
     public void Update()
     {
-
+        if (jumpThisFrame)
+        {
+            rigidbody.velocity = new Vector2(character.grounded ? rigidbody.velocity.x : 0, character.jumpPower);
+        }
     }
 
 
@@ -175,7 +120,7 @@ public class Idle : ICharacterState
 }
 
 
-
+/*
 public class Jumping : ICharacterState
 {
     
@@ -206,6 +151,13 @@ public class Jumping : ICharacterState
 
         rigidbody.velocity = new Vector2(resetXVel ? 0 : rigidbody.velocity.x, character.jumpPower);
         rigidbody.gravityScale = 0;
+    }
+
+
+
+    public ICharacterState HandleInput(CharacterInstructions instructions)
+    {
+        return null;
     }
 
 
@@ -251,7 +203,7 @@ public class Jumping : ICharacterState
             }
 
             return new Idle();
-        */
+        
         }
     }
 
@@ -269,7 +221,7 @@ public class Jumping : ICharacterState
         rigidbody.gravityScale = character.gravityScale;
     }
 }
-
+*/
 
 
 public class Stunned : ICharacterState
@@ -286,7 +238,7 @@ public class Stunned : ICharacterState
 
 
 
-    public ICharacterState HandleInput(CharacterInput input)
+    public ICharacterState HandleInput(CharacterInstructions instructions)
     {
         if (!character.stunned)
         {
@@ -334,7 +286,7 @@ public class Attacking : ICharacterState
 
 
 
-    public ICharacterState HandleInput(CharacterInput input)
+    public ICharacterState HandleInput(CharacterInstructions instructions)
     {
         if (exit)
         {
@@ -344,9 +296,6 @@ public class Attacking : ICharacterState
         {
             return new Stunned();
         }
-
-        AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
-
 
         return null;
     }

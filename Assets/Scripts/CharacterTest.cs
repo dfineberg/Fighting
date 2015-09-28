@@ -8,8 +8,8 @@ public class CharacterTest : MonoBehaviour, IGetInput {
     CharacterController myCharacter;
 
 
-    public void GetInput(ref CharacterInput input)
+    public void GetInput(ref CharacterInstructions instructions)
     {
-        input.rightStickDown = repeatDirection;
+        
     }
 }
