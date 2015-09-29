@@ -10,19 +10,19 @@ public class CharacterInstructions
 
     public enum ActionInstructions
     {
-        none, attack, jump
+        none, attack, jump, dash
     }
 
     public MoveInstructions moveInstructions = MoveInstructions.neutral;
     public ActionInstructions actionInstructions = ActionInstructions.none;
-    public Direction attackDirection = Direction.Neutral;
+    public Direction direction = Direction.Neutral;
     public bool actedOn = false;
 
     public void Clear()
     {
         moveInstructions = MoveInstructions.neutral;
         actionInstructions = ActionInstructions.none;
-        attackDirection = Direction.Neutral;
+        direction = Direction.Neutral;
         actedOn = false;
     }
 }
@@ -77,9 +77,9 @@ public class Idle : ICharacterState
         if(instructions.actionInstructions == CharacterInstructions.ActionInstructions.attack)
         {
             instructions.actedOn = true;
-            return new Attacking(instructions.attackDirection);
+            return new Attacking(instructions.direction);
         }
-        else if(instructions.actionInstructions == CharacterInstructions.ActionInstructions.jump)
+        else if(instructions.actionInstructions == CharacterInstructions.ActionInstructions.jump && character.grounded)
         {
             instructions.actedOn = true;
             jumpThisFrame = true;
@@ -87,6 +87,12 @@ public class Idle : ICharacterState
         else
         {
             jumpThisFrame = false;
+
+            if(instructions.actionInstructions == CharacterInstructions.ActionInstructions.dash)
+            {
+                instructions.actedOn = true;
+                return new Dashing(instructions.direction);
+            }
         }
 
         if (instructions.moveInstructions == CharacterInstructions.MoveInstructions.right)
@@ -321,5 +327,111 @@ public class Attacking : ICharacterState
     public void OnExit()
     {
 
+    }
+}
+
+
+
+public class Dashing : ICharacterState
+{
+    enum State { startup, dash, recovery, end }
+    State currentState = State.startup;
+    CharacterController character;
+    Rigidbody2D rigidbody;
+    Direction dashDirection;
+    Vector2 dashVector;
+    float gravityScale;
+    float timer = 0f;
+    bool recovery = false;
+    bool end = false;
+
+    public Dashing(Direction direction)
+    {
+        dashDirection = direction;
+    }
+
+    public void OnEnter(CharacterController character)
+    {
+        this.character = character;
+        rigidbody = character.GetComponent<Rigidbody2D>();
+        dashVector = DirectionUtility.GetVector(dashDirection) * character.dashSpeed;
+        gravityScale = rigidbody.gravityScale;
+        rigidbody.gravityScale = 0f;
+        rigidbody.velocity = Vector2.zero;
+    }
+
+    public ICharacterState HandleInput(CharacterInstructions instructions)
+    {
+        if (character.stunned)
+        {
+            return new Stunned();
+        }
+
+        if(currentState == State.end)
+        {
+            return new Idle();
+        }
+
+        return null;
+    }
+
+    public void Update()
+    {
+        timer += Time.deltaTime;
+
+        switch (currentState)
+        {
+            case State.startup:
+
+                if(timer >= character.dashStartTime)
+                {
+                    currentState = State.dash;
+                    timer = 0f;
+                }
+                break;
+
+            case State.dash:
+
+                rigidbody.velocity = dashVector;
+
+                if(timer >= character.dashTime)
+                {
+                    currentState = State.recovery;
+                    timer = 0f;
+                }
+                break;
+
+            case State.recovery:
+
+                rigidbody.velocity = Vector2.Lerp(dashVector, Vector2.zero, timer / character.dashRecoveryTime);
+
+                if(timer >= character.dashRecoveryTime)
+                {
+                    rigidbody.velocity = Vector2.zero;
+                    currentState = State.end;
+                }
+                break;
+        }
+
+        /*
+        if(timer > character.dashTime && !recovery)
+        {
+            timer = 0f;
+            recovery = true;
+        }
+        else if(timer > character.dashRecoveryTime && recovery)
+        {
+            end = true;
+        }
+        else if (recovery)
+        {
+            rigidbody.velocity = Vector2.Lerp(rigidbody.velocity, Vector2.zero, Time.deltaTime * character.dashStopSpeed);
+        }
+        */
+    }
+
+    public void OnExit()
+    {
+        rigidbody.gravityScale = gravityScale;
     }
 }

@@ -25,12 +25,13 @@ public class CharacterController : MonoBehaviour {
     public int inputBufferLength;
     public float accelleration;
     public float runSpeed;
-    public float walkSpeed;
     public float gravityScale;
     public float jumpPower;
-    public float jumpWindow;
-    [Range(0, 1)]
-    public float sideJumpDirection;
+    public float dashStartTime;
+    public float dashTime;
+    public float dashSpeed;
+    public float dashRecoveryTime;
+    public float dashStopSpeed;
     
     public Attack upAttack;
     public Attack sideUpAttack;
@@ -184,7 +185,7 @@ public class CharacterController : MonoBehaviour {
 
     void FixedUpdate()
     {
-        if (canMove)
+        if (currentState is Idle && grounded)
         {
             Vector2 runForce = Vector2.zero;
 
@@ -431,57 +432,5 @@ public class CharacterController : MonoBehaviour {
 
     //*********************************
     // ^^^^^^^^^^^ STUNNED ^^^^^^^^^^^^
-    //*********************************
-
-    //*********************************
-    // VVVVVVVVVVVV MISC. VVVVVVVVVVVVV
-    //*********************************
-
-    public void Jump(JumpDirection jumpDirection)
-    {
-        jumping = true;
-        Vector2 jumpVector = Vector2.zero;
-        rigidbody.velocity = Vector2.zero;
-        rigidbody.gravityScale = 0f;
-
-        switch (jumpDirection)
-        {
-            case JumpDirection.leftUp:
-                jumpVector = Vector2.Lerp(Vector2.up, -Vector2.right, sideJumpDirection).normalized * jumpPower;
-                break;
-
-            case JumpDirection.up:
-                jumpVector = Vector2.up * jumpPower;
-                break;
-
-            case JumpDirection.rightUp:
-                jumpVector = Vector2.Lerp(Vector2.up, Vector2.right, sideJumpDirection).normalized * jumpPower;
-                break;
-        }
-
-        rigidbody.AddForce(jumpVector, ForceMode2D.Impulse);
-    }
-
-
-
-    public void EndJump()
-    {
-        if (rigidbody.velocity.y > 0f)
-        {
-            rigidbody.velocity = new Vector2(rigidbody.velocity.x, 0f);
-        }
-
-        jumping = false;
-    }
-
-
-
-    public void SetFacingRight(bool facingRight)
-    {
-        this.facingRight = facingRight;
-    }
-
-    //*********************************
-    // ^^^^^^^^^^^^ MISC. ^^^^^^^^^^^^^
     //*********************************
 }

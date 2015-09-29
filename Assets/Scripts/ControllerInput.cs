@@ -201,9 +201,46 @@ public class ControllerInput : MonoBehaviour, IGetInput {
         if(rightStickDown)
         {
             instructions.actionInstructions = CharacterInstructions.ActionInstructions.attack;
-            instructions.attackDirection = rightStickDirection;
+            instructions.direction = rightStickDirection;
+        }
+        else if(character.grounded)
+        {
+            if(leftStickInput.y > ControllerThresholds.JumpThreshold)
+            {
+                if (!jumpSwitch)
+                {
+                    instructions.actionInstructions = CharacterInstructions.ActionInstructions.jump;
+                    jumpSwitch = true;
+                }
+            }
+            else
+            {
+                jumpSwitch = false;
+            }
+
+            if(leftStickInput.x > ControllerThresholds.WalkThreshold)
+            {
+                instructions.moveInstructions = CharacterInstructions.MoveInstructions.right;
+            }
+            else if(leftStickInput.x < -ControllerThresholds.WalkThreshold)
+            {
+                instructions.moveInstructions = CharacterInstructions.MoveInstructions.left;
+            }
+            else
+            {
+                instructions.moveInstructions = CharacterInstructions.MoveInstructions.neutral;
+            }
+        }
+        else
+        {
+            if (leftStickDown)
+            {
+                instructions.actionInstructions = CharacterInstructions.ActionInstructions.dash;
+                instructions.direction = leftStickDirection;
+            }
         }
 
+        /*
         bool tryToJump = false;
 
         switch (leftStickDirection)
@@ -248,8 +285,14 @@ public class ControllerInput : MonoBehaviour, IGetInput {
                 break;
         }
 
+        if(!character.grounded && leftStickDown)
+        {
+            instructions.actionInstructions = CharacterInstructions.ActionInstructions.dash;
+            instructions.direction = leftStickDirection;
+            instructions.moveInstructions = CharacterInstructions.MoveInstructions.neutral;
+        }
         //if the left stick is down this frame and the direction is up and the action this frame is not attacking
-        if (tryToJump)
+        else if (tryToJump)
         {
             if (!jumpSwitch && instructions.actionInstructions == CharacterInstructions.ActionInstructions.none)
             {
@@ -261,5 +304,6 @@ public class ControllerInput : MonoBehaviour, IGetInput {
         {
             jumpSwitch = false;
         }
+        */
     }
 }
