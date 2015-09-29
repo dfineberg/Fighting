@@ -153,15 +153,6 @@ public class CharacterController : MonoBehaviour {
         {
             instructions = instructionsBuffer.First.Value;
         }
-        else
-        {
-            Debug.Log("action found");
-        }
-
-        if (instructions.actedOn)
-        {
-            Debug.Log("acted on");
-        }
 
         //send this frame's input to the current state object
         //if this frame's input doesn't cause the character to change state, HandleInput returns null

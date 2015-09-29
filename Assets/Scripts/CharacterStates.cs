@@ -269,6 +269,7 @@ public class Attacking : ICharacterState
 {
     CharacterController character;
     Animator animator;
+    int idleHash;
     bool exit = false;
     Direction direction;
 
@@ -282,13 +283,14 @@ public class Attacking : ICharacterState
         this.character = character;
         character.Attack(direction);
         animator = character.GetComponent<Animator>();
+        idleHash = Animator.StringToHash("Idle");
     }
 
 
 
     public ICharacterState HandleInput(CharacterInstructions instructions)
     {
-        if (exit)
+        if (exit || animator.GetCurrentAnimatorStateInfo(0).shortNameHash == idleHash)
         {
             return new Idle();
         }
